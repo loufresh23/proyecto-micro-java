@@ -1,0 +1,127 @@
+version: '3.8'
+services:
+
+  mongo:
+    image: mongo
+    restart: always
+    container_name: mongo
+    ports:
+      - '27017:27017'
+    networks:
+      - 'lascencion-net'      
+
+  mysql:
+    image: mysql:8
+    restart: always
+    container_name: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=123456
+      - MYSQL_DATABASE=paydb
+    ports:
+      - '3306:3306'     
+    networks:
+      - 'lascencion-net'
+  
+  postgres:
+    image: postgres:12-alpine
+    restart: always
+    container_name: postgres
+    environment:
+      - POSTGRES_PASSWORD=123456
+      - POSTGRES_DB=invoicedb
+    ports:
+      - '5432:5432'
+    networks:
+      - 'lascencion-net'
+  
+  kafka:
+    image: johnnypark/kafka-zookeeper
+    restart: always
+    container_name: kafka 
+    environment:
+      - NUM_PARTITIONS=3
+    ports:
+      - '2181:2181'
+      - '9092:9092'
+    networks:
+      - 'lascencion-net'
+ 
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    restart: "no"
+    ports:
+      - "9000:9000"
+    environment:
+      KAFKA_BROKERCONNECT: "kafka:9092"
+      JVM_OPTS: "-Xms16M -Xmx48M -Xss180K -XX:-TieredCompilation -XX:+UseStringDeduplication -noverify"
+    depends_on:
+      - "kafka"      
+    networks:
+      - 'lascencion-net'
+  
+  config:
+    image: lascencion/config-server:0.1.0
+    restart: always
+    container_name: config
+    ports:
+      - '8888:8888'
+    networks:
+      - 'lascencion-net'
+      
+  gateway:
+    image: lascencion/api-gateway:0.1.0
+    restart: always
+    container_name: gateway
+    depends_on:
+      - config
+      - invoice
+      - pay
+      - transaction      
+    ports:
+      - '8090:8090'
+    networks:
+      - 'lascencion-net'      
+
+  invoice:
+    image: lascencion/app-invoice:0.1.0
+    restart: always
+    container_name: invoice
+    depends_on:
+      - config
+      - kafka
+      - postgres      
+    ports:
+      - '8084:8084'
+    networks:
+      - 'lascencion-net'
+      
+  pay:
+    image: lascencion/app-pay:0.1.0
+    restart: always
+    container_name: pay
+    depends_on:
+      - config
+      - kafka
+      - mysql      
+    ports:
+      - '8085:8085'
+    networks:
+      - 'lascencion-net'
+      
+  transaction:
+    image: lascencion/app-transaction:0.1.0
+    restart: always
+    container_name: transaction
+    depends_on:
+      - config
+      - kafka
+      - mongo      
+    ports:
+      - '8086:8086'
+    networks:
+      - 'lascencion-net'
+      
+networks:
+  lascencion-net:
+  
+  
